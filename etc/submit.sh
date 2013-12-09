@@ -1,23 +1,38 @@
 #!/bin/bash
 
+WMAGENT_MIN_JOB_TIME=${WMAGENT_MIN_JOB_TIME:-300}
+
+exitfunc() {
+  WMAGENTWRAPPER_END_TIME=$(date +"%s")
+  SLEEP_TIME=$(( $WMAGENT_MIN_JOB_TIME - $WMAGENTWRAPPER_END_TIME + $WMAGENTWRAPPER_START_TIME ))
+
+  if [ "$SLEEP_TIME" -gt 0 ]; then
+    echo "Sleeping for ${SLEEP_TIME}s as the job ran for less than ${WMAGENT_MIN_JOB_TIME}s"
+    sleep $SLEEP_TIME
+  fi
+
+exit $1
+
+}
+
+
 touch Report.pkl
 
 # should be a bit nicer than before
 echo "WMAgent bootstrap : `date -u` : starting..."
-
 
 # validate arguments
 
 if [ "x" = "x$1" ]
 then
 	echo "WMAgent bootstrap : `date -u` : Error: A sandbox must be specified" >&2
-	exit 1
+	exitfunc 1
 fi
 
 if [ "x" = "x$2" ]
 then
 	echo "WMAgent bootstrap : `date -u` : Error: An index must be specified" >&2
-	exit 1
+	exitfunc 1
 fi
 
 # assign arguments
@@ -26,6 +41,7 @@ SANDBOX=$1
 INDEX=$2
 echo "WMAgent bootstrap : `date -u` : arguments validated..."
 
+WMAGENTWRAPPER_START_TIME=$(date +"%s")
 ### source the CMSSW stuff using either OSG or LCG style entry env. variables
 ###    (incantations per oli's instructions)
 #   LCG style --
@@ -46,7 +62,7 @@ then
 else
 	echo "WMAgent bootstrap : `date -u` : Error: OSG_APP, VO_CMS_SW_DIR, CVMFS environment variables were set and /cvmfs is not present" >&2
 	echo "WMAgent bootstrap : `date -u` : Error: Because of this, we can't load CMSSW. Not good." >&2
-	exit 2
+	exitfunc 2
 fi
 echo "WMAgent bootstrap : `date -u` : WMAgent thinks it found the correct CMSSW setup script"
 
@@ -65,7 +81,7 @@ if [[ $rc != 0 ]]
 then
 	echo "WMAgent bootstrap : `date -u` : Error: Python2.6 isn't available on this worker node." >&2
 	echo "WMAgent bootstrap : `date -u` : Error: WMCore/WMAgent REQUIRES python2.6" >&2
-	exit 3	
+	exitfunc 3	
 else
 	echo "WMAgent bootstrap : `date -u` : found python2.6 at.."
 	echo `which python2.6`
@@ -90,6 +106,6 @@ cp WMTaskSpace/Report*.pkl ../
 ls -l WMTaskSpace
 ls -l WMTaskSpace/*
 echo "WMAgent bootstrap : `date -u` : WMAgent is finished. The job had an exit code of $jobrc "
-exit 0
+exitfunc 0
 
 
